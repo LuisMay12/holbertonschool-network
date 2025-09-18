@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
-# This script updates /etc/hosts so that localhost resolves to 127.0.0.2 and facebook.com resolves to 8.8.8.8
+# This script sets localhost->127.0.0.2 and facebook.com->8.8.8.8 in /etc/hosts safely (no in-place rename)
 
-# Add or replace entries in /etc/hosts
-# Using tee with sudo because we need root privileges to write to /etc/hosts
-sudo sed -i '/localhost/d' /etc/hosts
-sudo sed -i '/facebook.com/d' /etc/hosts
+set -euo pipefail
 
-echo "127.0.0.2 localhost" | sudo tee -a /etc/hosts > /dev/null
-echo "8.8.8.8 facebook.com" | sudo tee -a /etc/hosts > /dev/null
+tmpfile="$(mktemp)"
+# Remove any lines that mention ' localhost ' or ' facebook.com ' to avoid duplicates
+grep -vE '(^|[[:space:]])localhost([[:space:]]|$)|(^|[[:space:]])facebook\.com([[:space:]]|$)' /etc/hosts > "$tmpfile"
+
+# Prepend our desired mappings and write back to /etc/hosts using sudo tee
+{
+  printf '%s\n' '127.0.0.2 localhost'
+  printf '%s\n' '8.8.8.8 facebook.com'
+  cat "$tmpfile"
+} | sudo tee /etc/hosts >/dev/null
+
+rm -f "$tmpfile"
